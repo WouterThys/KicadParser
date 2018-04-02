@@ -14,36 +14,15 @@ import java.util.*;
 public class KiCadParser {
 
     private String parserName;
-    private File fileToParse;
-
     private String fileExtension;
     private String fileStartSequence;
     private String fileStopSequence;
-
-    //private List<Component> componentList;
-    private HashMap<String, List<Component>> componentMap; // List per sheet
-    private boolean hasParsed;
 
     public KiCadParser(String parserName) {
         this.parserName = parserName;
         this.fileExtension = "net";
         this.fileStartSequence = "(components";
         this.fileStopSequence = "(libparts";
-
-        //componentList = new ArrayList<>();
-        componentMap = new HashMap<>();
-        hasParsed = false;
-    }
-
-    public HashMap<String, List<Component>> getParsedData() {
-        if (!hasParsed) {
-            parse(fileToParse);
-        }
-        for (String key : componentMap.keySet()) {
-            Collections.sort(componentMap.get(key), new KiCadComponentComparator());
-        }
-
-        return componentMap;
     }
 
     @Override
@@ -65,23 +44,10 @@ public class KiCadParser {
         return fileExtension;
     }
 
-    public List<Component> sortList(List<Component> list) {
-        List<Component> sorted = new ArrayList<>();
-        if (list != null) {
-            for (Component component : list) {
-                if (sorted.contains(component)) {
-                    sorted.get(sorted.indexOf(component)).addReference(component.getRef());
-                } else {
-                    sorted.add(component);
-                }
-            }
-        }
-        return sorted;
-    }
-
-    public void parse(File fileToParse) {
-        this.fileToParse = fileToParse;
+    public HashMap<String, List<Component>> parse(File fileToParse) throws KiCadParserException {
+        HashMap<String, List<Component>> componentMap;
         if (isFileValid(fileToParse)) {
+            componentMap = new HashMap<>();
             String fileData = getRawStringFromFile(fileToParse);
             int startNdx = fileData.indexOf(fileStartSequence);
             int stopNdx = fileData.indexOf(fileStopSequence);
@@ -93,12 +59,24 @@ public class KiCadParser {
                 Node head = parseBlock(block);
                 componentMap.clear();
                 componentMap = parseNode(head);
-                hasParsed = true;
+                ;
             } catch (Exception e) {
-                e.printStackTrace();
+                throw new KiCadParserException("Failed to parse items..", e);
+            }
+        } else {
+            throw new KiCadParserException("Invalid parser file..", new IOException());
+        }
+
+        if (componentMap != null && componentMap.size() > 0) {
+            for (String layer : componentMap.keySet()) {
+                componentMap.get(layer).sort(new KiCadComponentComparator());
             }
         }
+
+        return componentMap;
     }
+
+
 
     private String getRawStringFromFile(File file) {
         StringBuilder result = new StringBuilder();
@@ -278,35 +256,26 @@ public class KiCadParser {
     private class KiCadComponentComparator implements Comparator<Component> {
         @Override
         public int compare(Component o1, Component o2) {
+            int res;
             try {
-                return o1.getLibSource().getPart().compareTo(o2.getLibSource().getPart());
+                res = o1.getLibSource().getPart().compareToIgnoreCase(o2.getLibSource().getPart());
+                if (res == 0) {
+                    res = o1.getRef().compareToIgnoreCase(o2.getRef());
+                }
             } catch(Exception e) {
                 e.printStackTrace();
-                return 0;
+                res = 0;
             }
+            return res;
         }
     }
 
-    public List<Component> createUniqueList(List<Component> componentList) {
-        List<Component> uniqueList = new ArrayList<>();
-        for (Component comp : componentList) {
-            if (!uniqueContains(uniqueList, comp)) {
-                uniqueList.add(comp);
-            }
-        }
-        return uniqueList;
-    }
+    public class KiCadParserException extends Exception {
 
-    private boolean uniqueContains(List<Component> componentList, Component component) {
-        for (Component comp : componentList) {
-            if (comp.getValue().equals(component.getValue()) &&
-                    comp.getFootprint().equals(component.getFootprint()) &&
-                    comp.getLibSource().getLib().equals(component.getLibSource().getLib()) &&
-                    comp.getLibSource().getPart().equals(component.getLibSource().getPart())) {
-                return true;
-            }
+        public KiCadParserException(String message, Throwable cause) {
+            super(message, cause);
         }
-        return false;
+
     }
 
 }

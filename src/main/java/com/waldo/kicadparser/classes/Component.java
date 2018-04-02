@@ -57,6 +57,8 @@ public class Component {
     }
 
     public void setValue(String value) {
+        if (value == null) value = "";
+        value = value.trim();
         this.value = value;
     }
 
