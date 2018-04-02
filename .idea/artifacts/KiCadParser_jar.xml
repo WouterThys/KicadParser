@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="KiCadParser:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/KiCadParser_jar</output-path>
+    <root id="archive" name="KiCadParser.jar">
+      <element id="module-output" name="KiCadParser" />
+    </root>
+  </artifact>
+</component>
